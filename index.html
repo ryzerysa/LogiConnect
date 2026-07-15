@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LogiConnect - Regional & Urbano</title>
+    <!-- Ícone do App -->
+    <link rel="shortcut icon" href="icone.ico" type="image/x-icon">
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- QR Code Generator -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- QR Code Scanner -->
+    <script src="https://unpkg.com/html5-qrcode"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brandRoxo: '#5B21B6',
+                        brandEscuro: '#3B0764',
+                        brandAmarelo: '#FACC15',
+                        brandOffWhite: '#FAFAF9',
+                        brandGrafite: '#1E1E2E'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #FAFAF9; }
+        #map { height: 280px; width: 100%; border-radius: 24px; z-index: 10; }
+        .sidebar-transition { transition: transform 0.3s ease-in-out; }
+    </style>
+</head>
+<body class="bg-brandOffWhite text-brandGrafite max-w-md mx-auto min-h-screen shadow-2xl border-x border-gray-200 flex flex-col relative overflow-x-hidden">
+
+    <!-- ================= TELA DE LOGIN ================= -->
+    <div id="screen-login" class="absolute inset-0 bg-gradient-to-b from-brandEscuro to-[#1b0232] z-[100] flex flex-col justify-between p-6">
+        <div class="flex-grow flex flex-col justify-center items-center">
+            <div class="flex flex-col items-center mb-8">
+                <div class="flex items-center gap-2">
+                    <svg class="w-16 h-16" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="50" cy="45" r="35" fill="#3B0764"/>
+                        <path d="M50 15 C35 15, 27 28, 27 45 C27 63, 50 82, 50 82 C50 82, 73 63, 73 45 C73 28, 65 15, 50 15 Z" fill="#3B0764"/>
+                        <rect x="36" y="30" width="28" height="26" rx="4" fill="white"/>
+                        <rect x="40" y="34" width="20" height="9" rx="1" fill="#3B0764"/>
+                        <circle cx="43" cy="52" r="2.5" fill="#5B21B6"/>
+                        <circle cx="57" cy="52" r="2.5" fill="#5B21B6"/>
+                        <path d="M15 78 Q 50 68, 85 78 L 80 84 Q 50 74, 20 84 Z" fill="#FACC15"/>
+                    </svg>
+                    <span class="text-3xl font-black tracking-tight flex items-center">
+                        <span class="text-white">LOGI</span><span class="text-brandAmarelo">CONNECT</span>
+                    </span>
+                </div>
+                <p class="text-purple-200 text-xs mt-3 tracking-wide font-medium">Urbano Três Rios & Conexões Regionais</p>
+            </div>
+
+            <div class="w-full space-y-4 bg-white/5 backdrop-blur-md p-6 rounded-3xl border border-white/10">
+                <div>
+                    <label class="block text-[11px] text-purple-200 font-bold mb-1 uppercase tracking-wider">Usuário ou Cartão</label>
+                    <input type="text" value="transa.passageiro@logiconnect.com" class="w-full p-3.5 bg-white/10 border border-white/10 rounded-2xl text-white text-sm focus:outline-none focus:border-brandAmarelo">
+                </div>
+                <div>
+                    <label class="block text-[11px] text-purple-200 font-bold mb-1 uppercase tracking-wider">Senha</label>
+                    <input type="password" value="123456" class="w-full p-3.5 bg-white/10 border border-white/10 rounded-2xl text-white text-sm focus:outline-none focus:border-brandAmarelo">
+                </div>
+                <button onclick="realizarLogin()" class="w-full bg-brandAmarelo hover:bg-yellow-500 text-brandEscuro font-extrabold py-4 rounded-2xl text-sm shadow-xl transition-all mt-2">
+                    Acessar Aplicativo
+                </button>
+            </div>
+        </div>
+        <p class="text-center text-[10px] text-purple-300/60">LogiConnect Completo © 2026</p>
+    </div>
+
+    <!-- ================= MENU LATERAL ================= -->
+    <div id="sidebar-menu" class="fixed top-0 left-0 bottom-0 w-64 bg-brandEscuro text-white z-[90] shadow-2xl sidebar-transition -translate-x-full flex flex-col justify-between p-5">
+        <div>
+            <div class="flex items-center justify-between border-b border-white/10 pb-4 mb-6">
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-full bg-brandAmarelo flex items-center justify-center text-brandEscuro font-bold">TR</div>
+                    <div>
+                        <p class="text-xs font-bold">Menu Integrado</p>
+                        <p class="text-[9px] text-brandAmarelo">Urbano + Regional Intermunicipal</p>
+                    </div>
+                </div>
+                <button onclick="toggleSidebar()"><i data-lucide="x" class="w-5 h-5 text-gray-400"></i></button>
+            </div>
+            <nav class="space-y-1">
+                <a href="#" onclick="switchView('inicio'); toggleSidebar();" class="flex items-center gap-3 p-3.5 rounded-2xl hover:bg-white/5 text-xs font-semibold">
+                    <i data-lucide="home" class="w-4 h-4 text-brandAmarelo"></i> Início
+                </a>
+                <a href="#" onclick="switchView('trajetos'); toggleSidebar();" class="flex items-center gap-3 p-3.5 rounded-2xl hover:bg-white/5 text-xs font-semibold">
+                    <i data-lucide="map" class="w-4 h-4 text-brandAmarelo"></i> Todas as Rotas e Mapas
+                </a>
+                <a href="#" onclick="switchView('pagamentos'); toggleSidebar();" class="flex items-center gap-3 p-3.5 rounded-2xl hover:bg-white/5 text-xs font-semibold">
+                    <i data-lucide="wallet" class="w-4 h-4 text-brandAmarelo"></i> Carteira e Comprar Passes
+                </a>
+                <a href="#" onclick="switchView('scanner'); toggleSidebar();" class="flex items-center gap-3 p-3.5 rounded-2xl hover:bg-white/5 text-xs font-semibold">
+                    <i data-lucide="scan" class="w-4 h-4 text-brandAmarelo"></i> Validar na Catraca
+                </a>
+            </nav>
+        </div>
+        <button onclick="realizarLogout()" class="flex items-center gap-3 p-3.5 rounded-2xl bg-red-950/40 text-red-400 hover:bg-red-950/60 text-xs font-bold transition-all">
+            <i data-lucide="log-out" class="w-4 h-4"></i> Deslogar
+        </button>
+    </div>
+    <div id="sidebar-overlay" onclick="toggleSidebar()" class="fixed inset-0 bg-brandGrafite/50 z-[80] hidden"></div>
+
+    <!-- ================= CONTEÚDO DO APP ================= -->
+    <div id="app-content" class="flex-grow flex flex-col hidden pb-20">
+        
+        <!-- HEADER -->
+        <header class="flex items-center justify-between p-4 bg-brandEscuro text-white sticky top-0 z-50 shadow-md">
+            <div class="flex items-center gap-2">
+                <button onclick="toggleSidebar()" class="p-1.5 hover:bg-white/10 rounded-xl">
+                    <i data-lucide="menu" class="w-6 h-6 text-white"></i>
+                </button>
+                <div class="flex items-center gap-1.5">
+                    <span class="text-base font-extrabold tracking-tight flex items-center">
+                        <span class="text-white">LOGI</span><span class="text-brandAmarelo">CONNECT</span>
+                    </span>
+                </div>
+            </div>
+            <div class="relative p-1">
+                <i data-lucide="bell" class="w-5 h-5 text-gray-200"></i>
+                <span class="absolute top-0 right-0 bg-brandAmarelo text-brandEscuro text-[9px] font-extrabold px-1.5 rounded-full">1</span>
+            </div>
+        </header>
+
+        <!-- ================= VISTA 1: INÍCIO ================= -->
+        <div id="view-inicio" class="view-content flex-1">
+            <div class="bg-gradient-to-b from-brandEscuro to-[#1e003a] px-5 pt-4 pb-12 text-white">
+                <h2 class="text-lg font-bold leading-snug mb-1">Mobilidade Urbana &<br>Conexão Regional</h2>
+                <p class="text-[11px] text-purple-200 mb-4 opacity-80">Linhas municipais de Três Rios e intermunicipais.</p>
+            </div>
+
+            <!-- Atalhos -->
+            <div class="px-5 -mt-6 mb-6">
+                <div class="grid grid-cols-4 gap-3">
+                    <button onclick="switchView('trajetos')" class="bg-white p-3.5 rounded-2xl shadow-md border border-gray-100 flex flex-col items-center justify-center text-center">
+                        <div class="w-8 h-8 rounded-full bg-purple-50 flex items-center justify-center mb-1.5 text-brandRoxo"><i data-lucide="map-pin" class="w-4 h-4"></i></div>
+                        <span class="text-[10px] font-bold text-gray-700">Mapas</span>
+                    </button>
+                    <button onclick="switchView('pagamentos')" class="bg-white p-3.5 rounded-2xl shadow-md border border-gray-100 flex flex-col items-center justify-center text-center col-span-2">
+                        <div class="w-8 h-8 rounded-full bg-yellow-50 flex items-center justify-center mb-1.5 text-yellow-600"><i data-lucide="ticket" class="w-4 h-4"></i></div>
+                        <span class="text-[10px] font-bold text-gray-700">Comprar Passes</span>
+                    </button>
+                    <button onclick="switchView('scanner')" class="bg-white p-3.5 rounded-2xl shadow-md border border-gray-100 flex flex-col items-center justify-center text-center">
+                        <div class="w-8 h-8 rounded-full bg-purple-50 flex items-center justify-center mb-1.5 text-brandRoxo"><i data-lucide="scan" class="w-4 h-4"></i></div>
+                        <span class="text-[10px] font-bold text-gray-700">Embarcar</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tabela de Preços -->
+            <div class="px-5 mb-6">
+                <h3 class="font-bold text-gray-900 text-xs uppercase tracking-wider text-gray-400 mb-2">Tabela de Valores de Passes</h3>
+                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 space-y-2.5 text-xs">
+                    <div class="flex justify-between border-b pb-2"><span class="font-medium">Linhas Urbanas (Três Rios)</span><span class="font-bold text-brandRoxo">R$ 5,00</span></div>
+                    <div class="flex justify-between border-b pb-2"><span class="font-medium">Intermunicipal para Levy Gasparian</span><span class="font-bold text-brandRoxo">R$ 5,35</span></div>
+                    <div class="flex justify-between"><span class="font-medium">Intermunicipal para Paraíba do Sul</span><span class="font-bold text-brandRoxo">R$ 5,80</span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= VISTA 2: MAPAS E ROTAS (TODOS OS ÔNIBUS) ================= -->
+        <div id="view-trajetos" class="view-content flex-1 hidden">
+            <div class="p-4 bg-brandEscuro text-white rounded-b-3xl pb-8">
+                <label class="block text-[10px] text-purple-200 font-bold mb-1.5 uppercase tracking-wider">Selecione a Linha (Urbana ou Regional):</label>
+                <select id="select-linha-tr" onchange="atualizarLinhaSelecionada()" class="w-full p-3 bg-white border rounded-xl text-xs font-semibold focus:outline-none text-brandEscuro">
+                    <optgroup label="Frota Urbana - Três Rios (Tarifa R$ 5,00)">
+                        <option value="moura-brasil">101 - Moura Brasil / Centro</option>
+                        <option value="piloes">102 - Pilões / Centro</option>
+                        <option value="vila-isabel">201 - Vila Isabel / Centro</option>
+                        <option value="cantagalo">302 - Cantagalo / Benjamin Constant</option>
+                        <option value="tere-nelson">404 - Santa Terezinha via Nelson Viana</option>
+                    </optgroup>
+                    <optgroup label="Frota Regional Intermunicipal">
+                        <option value="levy-gasparian">Três Rios ↔ Comendador Levy Gasparian (R$ 5,35)</option>
+                        <option value="paraiba-do-sul">Três Rios ↔ Paraíba do Sul (R$ 5,80)</option>
+                    </optgroup>
+                </select>
+            </div>
+
+            <!-- Quadro de Horários Dinâmico -->
+            <div class="px-4 -mt-5 mb-4">
+                <div class="bg-white p-4 rounded-2xl shadow-md border border-gray-100">
+                    <h3 class="font-bold text-brandGrafite text-[10px] uppercase tracking-wider mb-2 flex items-center gap-1">
+                        <i data-lucide="clock" class="w-3.5 h-3.5 text-brandRoxo"></i> Horários Estimados da Linha
+                    </h3>
+                    <div id="quadro-horarios" class="grid grid-cols-4 gap-2 text-center text-xs"></div>
+                </div>
+            </div>
+
+            <!-- Mapa com Travamento de Localização -->
+            <div class="px-4 mb-4">
+                <div class="bg-white p-2 rounded-3xl shadow-md border border-gray-100">
+                    <div id="map"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= VISTA 3: CARTEIRA DIGITAL E COMPRAS ================= -->
+        <div id="view-pagamentos" class="view-content flex-1 hidden">
+            <div class="bg-brandEscuro text-white px-5 pt-4 pb-14">
+                <p class="text-[10px] text-purple-200 flex items-center gap-1.5 opacity-80 mb-1">
+                    <i data-lucide="wallet" class="w-3.5 h-3.5"></i> Saldo da Carteira (Máx: R$ 50,00)
+                </p>
+                <h2 id="user-balance-display" class="text-3xl font-extrabold tracking-tight mb-1">R$ 25,00</h2>
+                <p class="text-[10px] text-brandAmarelo">Passes Ativos Prontos para Uso: <span id="qtd-passes-ativos" class="font-black text-white bg-brandRoxo px-2 py-0.5 rounded-full text-xs">0</span></p>
+
+                <div class="grid grid-cols-2 gap-3 mt-5">
+                    <button onclick="mostrarSessao('deposito')" class="bg-white/10 p-3 rounded-2xl flex flex-col items-center justify-center text-center hover:bg-white/20 transition-all">
+                        <i data-lucide="plus-circle" class="w-4 h-4 mb-1 text-brandAmarelo"></i>
+                        <span class="text-[10px] font-bold">1. Depositar Saldo</span>
+                    </button>
+                    <button onclick="mostrarSessao('passe')" class="bg-white/10 p-3 rounded-2xl flex flex-col items-center justify-center text-center hover:bg-white/20 transition-all">
+                        <i data-lucide="ticket" class="w-4 h-4 mb-1 text-brandAmarelo"></i>
+                        <span class="text-[10px] font-bold">2. Comprar Passe Único</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="px-4 -mt-8 mb-6">
+                <!-- FORMULÁRIO DE DEPÓSITO -->
+                <div id="box-deposito" class="bg-white p-5 rounded-3xl shadow-lg border border-gray-100 space-y-4">
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="arrow-down-to-line" class="w-5 h-5 text-brandRoxo"></i>
+                        <h3 class="font-bold text-brandGrafite text-xs uppercase tracking-wider">Adicionar Saldo via Pix</h3>
+                    </div>
+                    <div class="grid grid-cols-4 gap-2">
+                        <button onclick="selecionarValorRapido(5)" class="bg-brandRoxo text-white text-xs font-bold py-2 rounded-xl">R$ 5</button>
+                        <button onclick="selecionarValorRapido(10)" class="bg-brandOffWhite border text-xs font-bold py-2 rounded-xl text-brandGrafite">R$ 10</button>
+                        <button onclick="selecionarValorRapido(25)" class="bg-brandOffWhite border text-xs font-bold py-2 rounded-xl text-brandGrafite">R$ 25</button>
+                        <button onclick="selecionarValorRapido(50)" class="bg-brandOffWhite border text-xs font-bold py-2 rounded-xl text-brandGrafite">R$ 50</button>
+                    </div>
+                    <input type="number" id="input-val-recarga" value="5" max="50" class="w-full p-3 bg-brandOffWhite border border-gray-200 rounded-xl text-sm font-bold text-center text-brandGrafite">
+                    <button onclick="gerarQrCodeRecarga()" class="w-full bg-brandAmarelo text-brandEscuro font-extrabold py-3 rounded-xl text-xs uppercase">Gerar QR Code Pix</button>
+                </div>
+
+                <!-- TELA PIX GERADO -->
+                <div id="payment-box-pix" class="hidden bg-white p-5 rounded-3xl shadow-lg border border-gray-100 text-center space-y-4">
+                    <h3 class="font-bold text-brandEscuro text-sm">Escaneie para Creditar</h3>
+                    <div class="flex justify-center"><div id="pix-qrcode-area" class="p-2 border bg-brandOffWhite rounded-lg"></div></div>
+                    <p class="text-xs text-gray-500">Valor: <span id="pix-recarga-val-txt" class="font-bold text-brandEscuro">R$ 5,00</span></p>
+                    <button onclick="confirmarSimulacaoRecarga()" class="w-full bg-green-600 text-white font-bold py-2.5 rounded-xl text-xs">Confirmar Pagamento Simulado</button>
+                </div>
+
+                <!-- COMPRA DOS PASSES (DIFERENTES VALORES) -->
+                <div id="box-passe" class="hidden bg-white p-5 rounded-3xl shadow-lg border border-gray-100 space-y-4">
+                    <div class="flex items-center gap-2 border-b pb-2">
+                        <i data-lucide="shopping-cart" class="w-5 h-5 text-brandRoxo"></i>
+                        <h3 class="font-bold text-brandGrafite text-xs uppercase tracking-wider">Comprar Bilhete de Embarque</h3>
+                    </div>
+
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Selecione o tipo de Vale:</label>
+                        <select id="select-preco-passe" onchange="atualizarTextoPreco()" class="w-full p-3 bg-brandOffWhite border rounded-xl text-xs font-bold text-brandGrafite focus:outline-none">
+                            <option value="5.00">Urbano Comum (Três Rios) — R$ 5,00</option>
+                            <option value="5.35">Levy Gasparian (Regional) — R$ 5,35</option>
+                            <option value="5.80">Paraíba do Sul (Regional) — R$ 5,80</option>
+                        </select>
+                    </div>
+
+                    <div class="bg-purple-50 p-3 rounded-xl flex justify-between items-center text-xs">
+                        <span class="font-bold text-brandEscuro">Quantidade permitida:</span>
+                        <span class="font-black text-brandRoxo bg-white px-2.5 py-1 rounded-lg border text-[11px]">1 por vez</span>
+                    </div>
+
+                    <div class="text-center pt-2">
+                        <p class="text-xs text-gray-500">Valor a ser debitado do saldo:</p>
+                        <h4 id="txt-total-debitar-passe" class="text-2xl font-black text-brandEscuro">R$ 5,00</h4>
+                    </div>
+
+                    <button onclick="comprarPasseUnico()" class="w-full bg-brandEscuro text-white font-extrabold py-3.5 rounded-xl text-xs uppercase tracking-wider shadow-md">
+                        Debitar Saldo e Gerar QR Code
+                    </button>
+                </div>
+
+                <!-- PASSE DIGITAL ATIVO PRONTO PARA EMBARQUE -->
+                <div id="payment-box-active-ticket" class="hidden bg-white p-5 rounded-3xl shadow-lg border border-gray-100 text-center space-y-4">
+                    <div class="inline-flex items-center gap-1.5 bg-green-100 text-green-800 text-[10px] font-bold px-3 py-1 rounded-full">Passe Pronto no Celular</div>
+                    <div class="flex justify-center"><div id="active-ticket-qrcode-area" class="p-3 border-2 border-brandEscuro rounded-xl bg-white"></div></div>
+                    <p class="text-[11px] text-gray-500">Válido para: <span id="txt-destino-ticket-gerado" class="font-bold text-brandRoxo">Urbano</span></p>
+                    <button onclick="voltarParaAbaRecarga()" class="text-xs text-brandRoxo font-bold underline block mx-auto">Voltar para a Carteira</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= VISTA 4: SCANNER CATRACA ================= -->
+        <div id="view-scanner" class="view-content flex-1 hidden p-4">
+            <h2 class="text-lg font-bold text-brandEscuro mb-1">Validador de Bordo</h2>
+            <div class="bg-black rounded-3xl overflow-hidden relative aspect-square mb-4">
+                <div id="reader" class="w-full h-full"></div>
+            </div>
+            <div id="catraca-feedback" class="hidden p-5 rounded-3xl text-center space-y-3">
+                <div id="catraca-icon-bg" class="w-14 h-14 mx-auto rounded-full flex items-center justify-center text-white"></div>
+                <h3 id="catraca-status-title" class="font-bold text-base"></h3>
+                <p id="catraca-status-desc" class="text-xs">Aproxime o código na tela.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- NAVEGAÇÃO INFERIOR -->
+    <nav id="bottom-navbar" class="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white border-t border-gray-100 py-2.5 px-6 flex justify-between items-center z-50 hidden">
+        <button onclick="switchView('inicio')" id="nav-inicio" class="flex flex-col items-center text-brandRoxo"><i data-lucide="home" class="w-5 h-5"></i><span class="text-[10px] font-bold mt-1">Início</span></button>
+        <button onclick="switchView('trajetos')" id="nav-trajetos" class="flex flex-col items-center text-gray-400"><i data-lucide="map" class="w-5 h-5"></i><span class="text-[10px] font-bold mt-1">Trajetos</span></button>
+        <button onclick="switchView('pagamentos')" id="nav-pagamentos" class="flex flex-col items-center text-gray-400"><i data-lucide="wallet" class="w-5 h-5"></i><span class="text-[10px] font-bold mt-1">Pagamentos</span></button>
+        <button onclick="switchView('scanner')" id="nav-scanner" class="flex flex-col items-center text-gray-400"><i data-lucide="scan" class="w-5 h-5"></i><span class="text-[10px] font-bold mt-1">Catraca</span></button>
+    </nav>
+
+    <!-- ================= JAVASCRIPT ================= -->
+    <script>
+        lucide.createIcons();
+
+        let saldoAtual = 25.00; 
+        let valorRecargaEscolhida = 5.00;
+        let bilheteAtivoObj = null;
+
+        // BANCO DE DADOS DE ROTAS E COORDENADAS TRAVADAS (URBANO TRÊS RIOS + REGIONAIS)
+        const dadosLinhasTr = {
+            'moura-brasil': {
+                horarios: ["05:40", "07:50", "11:30", "15:30", "19:30", "22:15"],
+                center: [-22.11532, -43.20749], zoom: 14,
+                rota: [[-22.11532, -43.20749], [-22.11281, -43.20452], [-22.12210, -43.21220], [-22.12900, -43.22100]]
+            },
+            'piloes': {
+                horarios: ["06:10", "08:30", "12:00", "15:30", "19:00", "22:30"],
+                center: [-22.10500, -43.19900], zoom: 14,
+                rota: [[-22.11532, -43.20749], [-22.11220, -43.20300], [-22.10210, -43.19700], [-22.09540, -43.19250]]
+            },
+            'vila-isabel': {
+                horarios: ["05:30", "07:45", "11:30", "14:30", "18:15", "22:00"],
+                center: [-22.11000, -43.19200], zoom: 14,
+                rota: [[-22.11532, -43.20749], [-22.11410, -43.20050], [-22.10850, -43.18950], [-22.10510, -43.18120]]
+            },
+            'cantagalo': {
+                horarios: ["06:00", "08:20", "11:20", "14:20", "17:40", "21:40"],
+                center: [-22.12100, -43.21100], zoom: 14,
+                rota: [[-22.11532, -43.20749], [-22.11650, -43.20650], [-22.11920, -43.21350], [-22.12780, -43.21950]]
+            },
+            'tere-nelson': {
+                horarios: ["05:10", "07:45", "11:00", "14:20", "17:40", "21:10"],
+                center: [-22.12200, -43.19800], zoom: 14,
+                rota: [[-22.11532, -43.20749], [-22.11600, -43.20310], [-22.12450, -43.19420], [-22.13110, -43.18950]]
+            },
+            'levy-gasparian': {
+                horarios: ["05:15", "08:30", "11:15", "13:45", "16:20", "18:50", "22:10"],
+                center: [-22.05220, -43.21550], zoom: 12, // Foco travado em Levy Gasparian
+                rota: [[-22.11532, -43.20749], [-22.09110, -43.20120], [-22.03150, -43.20410], [-22.01670, -43.22440]]
+            },
+            'paraiba-do-sul': {
+                horarios: ["05:40", "07:30", "09:45", "12:00", "14:15", "18:00", "20:30"],
+                center: [-22.13840, -43.24520], zoom: 12, // Foco travado em Paraíba do Sul
+                rota: [[-22.11532, -43.20749], [-22.14440, -43.24820], [-22.15820, -43.26110], [-22.16450, -43.28420]]
+            }
+        };
+
+        function realizarLogin() {
+            document.getElementById('screen-login').classList.add('hidden');
+            document.getElementById('app-content').classList.remove('hidden');
+            document.getElementById('bottom-navbar').classList.remove('hidden');
+            atualizarLinhaSelecionada(); 
+        }
+
+        function realizarLogout() {
+            toggleSidebar();
+            document.getElementById('screen-login').classList.remove('hidden');
+            document.getElementById('app-content').classList.add('hidden');
+            document.getElementById('bottom-navbar').classList.add('hidden');
+        }
+
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar-menu');
+            const overlay = document.getElementById('sidebar-overlay');
+            sidebar.classList.toggle('-translate-x-full');
+            overlay.classList.toggle('hidden');
+        }
+
+        function switchView(viewName) {
+            document.querySelectorAll('.view-content').forEach(v => v.classList.add('hidden'));
+            document.querySelectorAll('#bottom-navbar button').forEach(b => {
+                b.classList.remove('text-brandRoxo'); b.classList.add('text-gray-400');
+            });
+            document.getElementById(`view-${viewName}`).classList.remove('hidden');
+            document.getElementById(`nav-${viewName}`).classList.add('text-brandRoxo');
+            document.getElementById(`nav-${viewName}`).classList.remove('text-gray-400');
+
+            if (viewName === 'trajetos') {
+                setTimeout(() => {
+                    map.invalidateSize();
+                    atualizarLinhaSelecionada();
+                }, 150);
+            }
+            if (viewName === 'scanner') iniciarScanner(); else pararScanner();
+        }
+
+        // INICIALIZAÇÃO DO MAPA REGIONAL COM ZOOM E ROLAGEM TRAVADOS
+        const map = L.map('map', { zoomControl: true, scrollWheelZoom: false }).setView([-22.11532, -43.20749], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+        const busIcon = L.divIcon({
+            html: `<div style="background-color: #3B0764; border: 2px solid #FACC15; padding: 6px; border-radius: 50%; color: #FACC15; display: flex; align-items: center; justify-content: center;"><i data-lucide="bus" style="width: 13px; height: 13px;"></i></div>`,
+            className: '', iconSize: [26, 26]
+        });
+
+        let marcadorOnibus = L.marker([-22.11532, -43.20749], {icon: busIcon}).addTo(map);
+        let linhaPolilinha = null;
+        let indexPontoAtual = 0;
+        let loopMovimento = null;
+
+        function atualizarLinhaSelecionada() {
+            const chaveLinha = document.getElementById('select-linha-tr').value;
+            const dados = dadosLinhasTr[chaveLinha];
+            const containerHorarios = document.getElementById('quadro-horarios');
+            
+            // Foca e trava na localização geográfica exata correspondente à linha selecionada
+            map.setView(dados.center, dados.zoom);
+
+            containerHorarios.innerHTML = "";
+            dados.horarios.forEach(h => {
+                containerHorarios.innerHTML += `<span class="border text-[11px] py-1.5 rounded-xl text-center bg-brandRoxo/10 text-brandRoxo border-brandRoxo/30 font-extrabold">${h}</span>`;
+            });
+
+            if (linhaPolilinha) map.removeLayer(linhaPolilinha);
+            linhaPolilinha = L.polyline(dados.rota, {color: '#5B21B6', weight: 5, opacity: 0.85}).addTo(map);
+
+            if (loopMovimento) clearInterval(loopMovimento);
+            indexPontoAtual = 0;
+            marcadorOnibus.setLatLng(dados.rota[0]);
+
+            loopMovimento = setInterval(() => {
+                indexPontoAtual = (indexPontoAtual + 1) % dados.rota.length;
+                marcadorOnibus.setLatLng(dados.rota[indexPontoAtual]);
+            }, 5000);
+            lucide.createIcons();
+        }
+
+        // CARTEIRA E FLUXOS
+        function mostrarSessao(tipo) {
+            document.getElementById('box-deposito').classList.add('hidden');
+            document.getElementById('box-passe').classList.add('hidden');
+            document.getElementById('payment-box-pix').classList.add('hidden');
+            document.getElementById('payment-box-active-ticket').classList.add('hidden');
+
+            if (tipo === 'deposito') document.getElementById('box-deposito').classList.remove('hidden');
+            if (tipo === 'passe') {
+                if (bilheteAtivoObj) document.getElementById('payment-box-active-ticket').classList.remove('hidden');
+                else document.getElementById('box-passe').classList.remove('hidden');
+            }
+        }
+
+        function atualizarTextoPreco() {
+            const preco = parseFloat(document.getElementById('select-preco-passe').value);
+            document.getElementById('txt-total-debitar-passe').innerText = `R$ ${preco.toFixed(2)}`;
+        }
+
+        function selecionarValorRapido(valor) { document.getElementById('input-val-recarga').value = valor; }
+
+        function gerarQrCodeRecarga() {
+            let inputVal = parseFloat(document.getElementById('input-val-recarga').value);
+            if(isNaN(inputVal) || inputVal <= 0 || inputVal > 50 || (saldoAtual + inputVal > 50)) {
+                alert("Operação negada. Saldo limite total em conta é de R$ 50,00.");
+                return;
+            }
+            valorRecargaEscolhida = inputVal;
+            document.getElementById('pix-recarga-val-txt').innerText = `R$ ${valorRecargaEscolhida.toFixed(2)}`;
+            document.getElementById('box-deposito').classList.add('hidden');
+            document.getElementById('payment-box-pix').classList.remove('hidden');
+
+            const pixArea = document.getElementById('pix-qrcode-area');
+            pixArea.innerHTML = "";
+            new QRCode(pixArea, { text: `pix-deposito-tr-${valorRecargaEscolhida}`, width: 120, height: 120, colorDark: "#3B0764" });
+        }
+
+        function confirmarSimulacaoRecarga() {
+            saldoAtual += valorRecargaEscolhida;
+            document.getElementById('user-balance-display').innerText = `R$ ${saldoAtual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+            document.getElementById('payment-box-pix').classList.add('hidden');
+            mostrarSessao('deposito');
+        }
+
+        function comprarPasseUnico() {
+            if (bilheteAtivoObj !== null) {
+                alert("Você possui 1 passe ativo! Utilize-o na catraca antes de comprar um novo.");
+                return;
+            }
+            const seletor = document.getElementById('select-preco-passe');
+            const precoPasse = parseFloat(seletor.value);
+            const nomeDestino = seletor.options[seletor.selectedIndex].text.split('—')[0].trim();
+
+            if (saldoAtual < precoPasse) {
+                alert("Saldo insuficiente na carteira para realizar a emissão deste bilhete.");
+                return;
+            }
+
+            saldoAtual -= precoPasse;
+            document.getElementById('user-balance-display').innerText = `R$ ${saldoAtual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+            document.getElementById('qtd-passes-ativos').innerText = "1";
+            document.getElementById('txt-destino-ticket-gerado').innerText = nomeDestino + ` (R$ ${precoPasse.toFixed(2)})`;
+
+            bilheteAtivoObj = { id: "PASSE-" + Math.floor(100000 + Math.random() * 900000), valorDebito: precoPasse, destino: nomeDestino, status: "Pago" };
+            
+            document.getElementById('box-passe').classList.add('hidden');
+            document.getElementById('payment-box-active-ticket').classList.remove('hidden');
+
+            const ticketArea = document.getElementById('active-ticket-qrcode-area');
+            ticketArea.innerHTML = "";
+            new QRCode(ticketArea, { text: JSON.stringify(bilheteAtivoObj), width: 140, height: 140, colorDark: "#3B0764" });
+        }
+
+        function voltarParaAbaRecarga() { mostrarSessao('deposito'); }
+
+        // MÓDULO EMBARQUE / CATRACA
+        function iniciarScanner() {
+            document.getElementById('reader').innerHTML = `
+                <div class="p-6 text-center text-xs h-full flex flex-col justify-center items-center bg-gray-50 rounded-2xl">
+                    <p class="mb-3 font-semibold">Validador de Catraca Inteligente</p>
+                    <button onclick="simularLeituraPorClique()" class="bg-brandAmarelo text-brandEscuro font-extrabold px-6 py-3 rounded-xl shadow-md">Aproximar Passe Ativo</button>
+                </div>`;
+        }
+        function pararScanner() {}
+        function simularLeituraPorClique() {
+            const panel = document.getElementById('catraca-feedback');
+            panel.classList.remove('hidden');
+
+            if (bilheteAtivoObj) {
+                panel.className = "p-5 rounded-3xl text-center space-y-2 bg-green-50 border border-green-200";
+                panel.innerHTML = `<h3 class="font-black text-green-700">EMBARQUE LIBERADO ✔</h3><p class="text-xs">Passagem para <b>${bilheteAtivoObj.destino}</b> confirmada. Boa viagem!</p>`;
+                bilheteAtivoObj = null;
+                document.getElementById('qtd-passes-ativos').innerText = "0";
+            } else {
+                panel.className = "p-5 rounded-3xl text-center space-y-2 bg-red-50 border border-red-200";
+                panel.innerHTML = `<h3 class="font-black text-red-600">ACESSO NEGADO ❌</h3><p class="text-xs">Nenhum passe ativo encontrado na conta. Compre uma passagem antes de passar na catraca.</p>`;
+            }
+        }
+    </script>
+</body>
+</html>
