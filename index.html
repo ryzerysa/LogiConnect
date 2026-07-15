@@ -950,27 +950,41 @@
         <button onclick="switchView('scanner')" id="nav-scanner" class="flex flex-col items-center text-gray-400"><i data-lucide="scan" class="w-5 h-5"></i><span class="text-[10px] font-bold mt-1">Catraca</span></button>
     </nav>
 
-    <script>
-        lucide.createIcons();
+  <script>
+        // Garante que todo o código só rode quando o DOM estiver completamente pronto
+        document.addEventListener("DOMContentLoaded", function() {
+            // Inicializa ícones do Lucide com segurança
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
+
+            // Inicialização segura do Mapa Leaflet
+            inicializarMapa();
+        });
 
         let saldoAtual = 25.00; 
         let valorRecargaEscolhida = 5.00;
-        let bilheteAtivoObj = null; // Guarda o objeto do QR Code gerado atualmente
-        let html5QrcodeScanner = null; // Scanner de câmera real
+        let bilheteAtivoObj = null; 
+        let html5QrcodeScanner = null; 
+        let map = null;
+        let marcadorOnibus = null;
+        let linhaPolilinha = null;
+        let indexPontoAtual = 0;
+        let loopMovimento = null;
 
-        // BANCO DE DADOS DE ROTAS E COORDENADAS TRAVADAS (URBANO TRÊS RIOS + REGIONAIS + STATUS DE ATRASO)
+        // BANCO DE DADOS DE ROTAS
         const dadosLinhasTr = {
             'moura-brasil': {
                 horarios: ["05:40", "07:50", "11:30", "15:30", "19:30", "22:15"],
                 atraso: "No horário",
-                atrasoNivel: "sucesso", // verde
+                atrasoNivel: "sucesso",
                 center: [-22.11532, -43.20749], zoom: 14,
                 rota: [[-22.11532, -43.20749], [-22.11281, -43.20452], [-22.12210, -43.21220], [-22.12900, -43.22100]]
             },
             'piloes': {
                 horarios: ["06:10", "08:30", "12:00", "15:30", "19:00", "22:30"],
                 atraso: "Atrasado 8 min",
-                atrasoNivel: "atencao", // amarelo
+                atrasoNivel: "atencao",
                 center: [-22.10500, -43.19900], zoom: 14,
                 rota: [[-22.11532, -43.20749], [-22.11220, -43.20300], [-22.10210, -43.19700], [-22.09540, -43.19250]]
             },
@@ -991,7 +1005,7 @@
             'tere-nelson': {
                 horarios: ["05:10", "07:45", "11:00", "14:20", "17:40", "21:10"],
                 atraso: "Atraso Crítico 22m",
-                atrasoNivel: "perigo", // vermelho
+                atrasoNivel: "perigo",
                 center: [-22.12200, -43.19800], zoom: 14,
                 rota: [[-22.11532, -43.20749], [-22.11600, -43.20310], [-22.12450, -43.19420], [-22.13110, -43.18950]]
             },
@@ -1010,6 +1024,24 @@
                 rota: [[-22.11532, -43.20749], [-22.14440, -43.24820], [-22.15820, -43.26110], [-22.16450, -43.28420]]
             }
         };
+
+        function inicializarMapa() {
+            try {
+                if (typeof L !== 'undefined' && document.getElementById('map')) {
+                    map = L.map('map', { zoomControl: true, scrollWheelZoom: false }).setView([-22.11532, -43.20749], 13);
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+                    const busIcon = L.divIcon({
+                        html: `<div style="background-color: #3B0764; border: 2px solid #FACC15; padding: 6px; border-radius: 50%; color: #FACC15; display: flex; align-items: center; justify-content: center;"><i data-lucide="bus" style="width: 13px; height: 13px;"></i></div>`,
+                        className: '', iconSize: [26, 26]
+                    });
+
+                    marcadorOnibus = L.marker([-22.11532, -43.20749], {icon: busIcon}).addTo(map);
+                }
+            } catch (error) {
+                console.error("Erro ao carregar o Leaflet:", error);
+            }
+        }
 
         function realizarLogin() {
             document.getElementById('screen-login').classList.add('hidden');
@@ -1039,10 +1071,14 @@
                 b.classList.remove('text-brandRoxo'); b.classList.add('text-gray-400');
             });
             document.getElementById(`view-${viewName}`).classList.remove('hidden');
-            document.getElementById(`nav-${viewName}`).classList.add('text-brandRoxo');
-            document.getElementById(`nav-${viewName}`).classList.remove('text-gray-400');
+            
+            const navBtn = document.getElementById(`nav-${viewName}`);
+            if (navBtn) {
+                navBtn.classList.add('text-brandRoxo');
+                navBtn.classList.remove('text-gray-400');
+            }
 
-            if (viewName === 'trajetos') {
+            if (viewName === 'trajetos' && map) {
                 setTimeout(() => {
                     map.invalidateSize();
                     atualizarLinhaSelecionada();
@@ -1055,20 +1091,8 @@
             }
         }
 
-        const map = L.map('map', { zoomControl: true, scrollWheelZoom: false }).setView([-22.11532, -43.20749], 13);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-
-        const busIcon = L.divIcon({
-            html: `<div style="background-color: #3B0764; border: 2px solid #FACC15; padding: 6px; border-radius: 50%; color: #FACC15; display: flex; align-items: center; justify-content: center;"><i data-lucide="bus" style="width: 13px; height: 13px;"></i></div>`,
-            className: '', iconSize: [26, 26]
-        });
-
-        let marcadorOnibus = L.marker([-22.11532, -43.20749], {icon: busIcon}).addTo(map);
-        let linhaPolilinha = null;
-        let indexPontoAtual = 0;
-        let loopMovimento = null;
-
         function atualizarLinhaSelecionada() {
+            if (!map) return;
             const chaveLinha = document.getElementById('select-linha-tr').value;
             const dados = dadosLinhasTr[chaveLinha];
             const containerHorarios = document.getElementById('quadro-horarios');
@@ -1076,7 +1100,6 @@
             
             map.setView(dados.center, dados.zoom);
 
-            // Atualiza Badge de atraso
             delayBadge.innerText = dados.atraso;
             delayBadge.className = "text-[10px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1";
             if (dados.atrasoNivel === "sucesso") {
@@ -1097,13 +1120,14 @@
 
             if (loopMovimento) clearInterval(loopMovimento);
             indexPontoAtual = 0;
-            marcadorOnibus.setLatLng(dados.rota[0]);
+            if (marcadorOnibus) marcadorOnibus.setLatLng(dados.rota[0]);
 
             loopMovimento = setInterval(() => {
                 indexPontoAtual = (indexPontoAtual + 1) % dados.rota.length;
-                marcadorOnibus.setLatLng(dados.rota[indexPontoAtual]);
+                if (marcadorOnibus) marcadorOnibus.setLatLng(dados.rota[indexPontoAtual]);
             }, 5000);
-            lucide.createIcons();
+            
+            if (typeof lucide !== 'undefined') lucide.createIcons();
         }
 
         function mostrarSessao(tipo) {
@@ -1131,143 +1155,5 @@
             if(isNaN(inputVal) || inputVal <= 0 || inputVal > 50 || (saldoAtual + inputVal > 50)) {
                 alert("Operação negada. Saldo limite total em conta é de R$ 50,00.");
                 return;
-            }
-            valorRecargaEscolhida = inputVal;
-            document.getElementById('pix-recarga-val-txt').innerText = `R$ ${valorRecargaEscolhida.toFixed(2)}`;
-            document.getElementById('box-deposito').classList.add('hidden');
-            document.getElementById('payment-box-pix').classList.remove('hidden');
-
-            const pixArea = document.getElementById('pix-qrcode-area');
-            pixArea.innerHTML = "";
-            new QRCode(pixArea, { text: `PIX-SALDO-${valorRecargaEscolhida}`, width: 120, height: 120, colorDark: "#3B0764" });
-        }
-
-        function confirmarSimulacaoRecarga() {
-            saldoAtual += valorRecargaEscolhida;
-            document.getElementById('user-balance-display').innerText = `R$ ${saldoAtual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
-            document.getElementById('payment-box-pix').classList.add('hidden');
-            mostrarSessao('deposito');
-        }
-
-        function comprarPasseUnico() {
-            if (bilheteAtivoObj !== null) {
-                alert("Você possui 1 passe ativo! Utilize-o na catraca antes de comprar um novo.");
-                return;
-            }
-            const seletor = document.getElementById('select-preco-passe');
-            const precoPasse = parseFloat(seletor.value);
-            const nomeDestino = seletor.options[seletor.selectedIndex].text.split('—')[0].trim();
-
-            if (saldoAtual < precoPasse) {
-                alert("Saldo insuficiente na carteira para realizar a emissão deste bilhete.");
-                return;
-            }
-
-            saldoAtual -= precoPasse;
-            document.getElementById('user-balance-display').innerText = `R$ ${saldoAtual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
-            document.getElementById('qtd-passes-ativos').innerText = "1";
-            document.getElementById('txt-destino-ticket-gerado').innerText = nomeDestino + ` (R$ ${precoPasse.toFixed(2)})`;
-
-            bilheteAtivoObj = { 
-                id: "PASSE-" + Math.floor(100000 + Math.random() * 900000), 
-                valorDebito: precoPasse, 
-                destino: nomeDestino, 
-                status: "Ativo" 
-            };
-            
-            document.getElementById('box-passe').classList.add('hidden');
-            document.getElementById('payment-box-active-ticket').classList.remove('hidden');
-
-            const ticketArea = document.getElementById('active-ticket-qrcode-area');
-            ticketArea.innerHTML = "";
-            
-            // Gerando QR code com estrutura JSON Stringizada para leitura do validador
-            new QRCode(ticketArea, { text: JSON.stringify(bilheteAtivoObj), width: 140, height: 140, colorDark: "#3B0764" });
-        }
-
-        function voltarParaAbaRecarga() { mostrarSessao('deposito'); }
-
-        // ================= MÓDULO EMBARQUE / VALIDADOR DE CÂMERA REAL =================
-        function iniciarScanner() {
-            // Oculta feedback anterior
-            document.getElementById('catraca-feedback').classList.add('hidden');
-
-            if (!html5QrcodeScanner) {
-                html5QrcodeScanner = new Html5QrcodeScanner("reader", { 
-                    fps: 10, 
-                    qrbox: { width: 220, height: 220 },
-                    aspectRatio: 1.0
-                });
-            }
-            
-            html5QrcodeScanner.render(onScanSuccess, onScanFailure);
-        }
-
-        function pararScanner() {
-            if (html5QrcodeScanner) {
-                html5QrcodeScanner.clear().then(() => {
-                    html5QrcodeScanner = null;
-                }).catch(err => {
-                    console.warn("Erro ao parar scanner:", err);
-                });
-            }
-        }
-
-        // Função de sucesso ao escanear o QR Code
-        function onScanSuccess(decodedText, decodedResult) {
-            const panel = document.getElementById('catraca-feedback');
-            panel.classList.remove('hidden');
-
-            try {
-                // Tenta decodificar o JSON lido
-                const dadosLidos = JSON.parse(decodedText);
-                
-                // Valida se corresponde ao ID do bilhete ativo e se o status é válido
-                if (bilheteAtivoObj && dadosLidos.id === bilheteAtivoObj.id && bilheteAtivoObj.status === "Ativo") {
-                    
-                    panel.className = "p-5 rounded-3xl text-center space-y-2 bg-green-50 border border-green-200 mt-4";
-                    panel.innerHTML = `
-                        <h3 class="font-black text-green-700">EMBARQUE LIBERADO ✔</h3>
-                        <p class="text-xs">Passagem para <b>${dadosLidos.destino}</b> validada com sucesso.</p>
-                        <p class="text-[10px] text-gray-400">Código do Bilhete: ${dadosLidos.id}</p>
-                    `;
-
-                    // DESABILITA TODO O VALE APÓS USADO
-                    bilheteAtivoObj = null; 
-                    document.getElementById('qtd-passes-ativos').innerText = "0";
-                    document.getElementById('active-ticket-qrcode-area').innerHTML = ""; // limpa o QR antigo gerado
-                    
-                    // Emite aviso sonoro simples (beep nativo)
-                    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                    const osc = audioCtx.createOscillator();
-                    osc.connect(audioCtx.destination);
-                    osc.frequency.value = 800;
-                    osc.start();
-                    osc.stop(audioCtx.currentTime + 0.15);
-
-                } else {
-                    mostrarErroCatraca("BILHETE JÁ USADO OU INVÁLIDO");
-                }
-            } catch (e) {
-                // Se não for um QR Code no formato correto do aplicativo
-                mostrarErroCatraca("QR CODE NÃO RECONHECIDO");
-            }
-        }
-
-        function onScanFailure(error) {
-            // Callback silencioso para não poluir logs durante a busca da câmera
-        }
-
-        function mostrarErroCatraca(mensagem) {
-            const panel = document.getElementById('catraca-feedback');
-            panel.classList.remove('hidden');
-            panel.className = "p-5 rounded-3xl text-center space-y-2 bg-red-50 border border-red-200 mt-4";
-            panel.innerHTML = `
-                <h3 class="font-black text-red-600">ACESSO NEGADO ❌</h3>
-                <p class="text-xs">${mensagem}</p>
-                <p class="text-[10px] text-gray-500">Apenas passes comprados no app e com status ativo são liberados.</p>
-            `;
-        }
-    </script>
 </body>
 </html>
