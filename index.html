@@ -5,12 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LogiConnect - Regional & Urbano</title>
     
+    <link rel="icon" href="icone.ico" type="image/x-icon">
+    <link rel="shortcut icon" href="icone.ico" type="image/x-icon">
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-    <script src="https://unpkg.com/html5-qrcode" crossorigin=""></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
 
     <script>
         tailwind.config = {
@@ -178,7 +181,7 @@
 
             <div class="px-5 mb-6">
                 <div class="flex justify-between items-center mb-2">
-                    <h3 class="font-bold text-[10px] uppercase tracking-wider text-gray-400">Ocorrências da Comunidade</h3>
+                    <h3 class="font-bold text-gray-900 text-[10px] uppercase tracking-wider text-gray-400">Ocorrências da Comunidade</h3>
                     <button onclick="switchView('comunidade')" class="text-[10px] font-bold text-brandRoxo">Ver Todos</button>
                 </div>
                 <div id="inicio-alertas-comunidade" class="space-y-2">
@@ -408,6 +411,7 @@
         let indexPontoAtual = 0;
         let loopMovimento = null;
 
+        // BANCO DE DADOS DE ROTAS E STATUS DE ATRASO
         const dadosLinhasTr = {
             'moura-brasil': {
                 nome: "101 - Moura Brasil",
@@ -467,6 +471,7 @@
             }
         };
 
+        // RELATOS MOCKADOS DA COMUNIDADE (SIMULAÇÃO WAZE)
         let relatosComunidade = [
             { id: 1, linha: "tere-nelson", tipo: "Acidente", detalhe: "Colisão leve perto do Hospital de Clínicas. Rota travada.", tempo: "Há 5 min", autor: "Marcos S." },
             { id: 2, linha: "piloes", tipo: "Trânsito", detalhe: "Trânsito lento na ponte das garças.", tempo: "Há 12 min", autor: "Carla T." }
@@ -531,6 +536,7 @@
             }
         }
 
+        // MAPA
         function inicializarMapa() {
             if (map !== null) return;
             try {
@@ -562,6 +568,7 @@
             
             map.setView(dados.center, dados.zoom);
 
+            // Verifica se há relatos na comunidade para aplicar aviso na rota
             const avisoRotaBox = document.getElementById('linha-alerta-critico-box');
             const avisoTitulo = document.getElementById('linha-alerta-critico-titulo');
             const avisoDesc = document.getElementById('linha-alerta-critico-desc');
@@ -572,6 +579,7 @@
                 avisoTitulo.innerText = `${relatosDestaLinha[0].tipo} Reportado!`;
                 avisoDesc.innerText = `"${relatosDestaLinha[0].detalhe}" - enviado por ${relatosDestaLinha[0].autor}`;
                 
+                // Altera dinamicamente o status de atraso se houver relatos graves
                 dados.atraso = `Alerta: ${relatosDestaLinha[0].tipo}`;
                 dados.atrasoNivel = "perigo";
             } else {
@@ -612,6 +620,7 @@
             if (typeof lucide !== 'undefined') lucide.createIcons();
         }
 
+        // SISTEMA DE COMUNIDADE (WAZE BUS)
         function carregarFeedComunidade() {
             const feed = document.getElementById('feed-comunidade');
             const feedInicio = document.getElementById('inicio-alertas-comunidade');
@@ -624,6 +633,7 @@
                 const dadosLinhaObj = dadosLinhasTr[relato.linha];
                 const nomeLinha = dadosLinhaObj ? dadosLinhaObj.nome : relato.linha;
 
+                // Cor conforme gravidade do alerta
                 let badgeCor = "bg-red-100 text-red-800";
                 if (relato.tipo === "Trânsito" || relato.tipo === "Lotado") badgeCor = "bg-yellow-100 text-yellow-800";
                 if (relato.tipo === "Atraso") badgeCor = "bg-orange-100 text-orange-800";
@@ -675,8 +685,9 @@
             };
 
             relatosComunidade.unshift(novoRelato);
-            reportDetalheInput.value = ""; 
+            reportDetalheInput.value = ""; // limpa campo
 
+            // Dispara Alerta de Notificação no topo
             const nomeLinha = dadosLinhasTr[linhaId] ? dadosLinhasTr[linhaId].nome : "Linha Selecionada";
             dispararAlertaNotificacao(`Aviso de ${tipo}: ${nomeLinha} - "${detalhe}"`);
 
@@ -684,6 +695,7 @@
             atualizarLinhaSelecionada();
         }
 
+        // SISTEMA DE NOTIFICAÇÕES GLOBAIS
         function dispararAlertaNotificacao(texto) {
             const banner = document.getElementById('push-notification');
             const textoEl = document.getElementById('push-text');
@@ -693,6 +705,7 @@
             banner.classList.remove('-translate-y-40');
             banner.classList.add('translate-y-0');
 
+            // Autoclose após 6 segundos
             setTimeout(() => {
                 fecharNotificacao();
             }, 6000);
@@ -706,6 +719,7 @@
             }
         }
 
+        // CARTEIRA E DEPÓSITOS
         function mostrarSessao(tipo) {
             document.getElementById('box-deposito').classList.add('hidden');
             document.getElementById('box-passe').classList.add('hidden');
@@ -790,6 +804,7 @@
 
         function voltarParaAbaRecarga() { mostrarSessao('deposito'); }
 
+        // SCANNER CATRACA REAL
         function iniciarScanner() {
             const feedbackPanel = document.getElementById('catraca-feedback');
             if (feedbackPanel) feedbackPanel.classList.add('hidden');
@@ -855,6 +870,7 @@
                         <p class="text-[10px] text-gray-400">ID Bilhete: ${dadosLidos.id}</p>
                     `;
 
+                    // Desabilita o vale
                     bilheteAtivoObj = null; 
                     document.getElementById('qtd-passes-ativos').innerText = "0";
                     const ticketArea = document.getElementById('active-ticket-qrcode-area');
